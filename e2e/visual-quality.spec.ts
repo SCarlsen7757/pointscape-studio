@@ -22,6 +22,7 @@ const CASES = [
   { seed: 2024, palette: 'emerald' },
   { seed: 55555, palette: 'crimson' },
   { seed: 8080, palette: 'silver' },
+  { seed: 6060, palette: 'neon-tropic' },
 ];
 
 const GALLERY = path.join('test-results', 'gallery');

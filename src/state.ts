@@ -16,10 +16,10 @@ export type Colors = Pick<Palette, 'left' | 'right' | 'background' | 'glow'>;
 export type OutputSize = { id: string; label: string; width: number; height: number };
 
 export const OUTPUT_SIZES: readonly OutputSize[] = [
-  { id: '1280x720', label: 'HD · 1280 × 720', width: 1280, height: 720 },
-  { id: '1920x1080', label: 'Full HD · 1920 × 1080', width: 1920, height: 1080 },
+  { id: '3840x2160', label: '4K UHD · 3840 × 2160 (native)', width: 3840, height: 2160 },
   { id: '2560x1440', label: 'QHD · 2560 × 1440', width: 2560, height: 1440 },
-  { id: '3840x2160', label: '4K · 3840 × 2160', width: 3840, height: 2160 },
+  { id: '1920x1080', label: 'Full HD · 1920 × 1080', width: 1920, height: 1080 },
+  { id: '1280x720', label: 'HD · 1280 × 720', width: 1280, height: 720 },
   { id: '1200x630', label: 'Social card · 1200 × 630', width: 1200, height: 630 },
   { id: '1500x500', label: 'Banner · 1500 × 500', width: 1500, height: 500 },
   { id: '1080x1080', label: 'Square · 1080 × 1080', width: 1080, height: 1080 },
@@ -54,11 +54,46 @@ export function paletteColors(p: Palette): Colors {
   return { left: p.left, right: p.right, background: p.background, glow: p.glow };
 }
 
+/** Default output: native 4K. */
+export const DEFAULT_SIZE_ID = '3840x2160';
+
+/** Every user setting except content (seed + uploaded logos), at its default value. */
+export type Settings = Omit<AppState, 'seed' | 'logos'>;
+
+export function defaultSettings(): Settings {
+  return {
+    paletteId: DEFAULT_PALETTE.id,
+    colors: paletteColors(DEFAULT_PALETTE),
+    density: 1,
+    waveHeight: 1,
+    mesh: 1,
+    dust: 1,
+    blur: 1,
+    glow: 1,
+    brightness: 1,
+    sizeId: DEFAULT_SIZE_ID,
+    format: 'png',
+    logoSize: 0.115,
+    logoGap: 0.06,
+    logoY: 0.41,
+    dividers: true,
+    dividerOpacity: 0.55,
+  };
+}
+
+/**
+ * Resets every setting to its default. The current variation (seed) and the uploaded logos
+ * are kept, but each logo's individual scale is reset too.
+ */
+export function resetSettingsPatch(state: AppState): Partial<AppState> {
+  return { ...defaultSettings(), logos: state.logos.map((l) => (l.scale === 1 ? l : { ...l, scale: 1 })) };
+}
+
 export function initialState(search: string = ''): AppState {
   const q = new URLSearchParams(search);
   const palette = getPalette(q.get('palette') ?? '') ?? DEFAULT_PALETTE;
   const seedParam = Number(q.get('seed'));
-  const size = OUTPUT_SIZES.find((s) => s.id === q.get('size')) ?? OUTPUT_SIZES[1];
+  const size = OUTPUT_SIZES.find((s) => s.id === q.get('size')) ?? outputSizeById(DEFAULT_SIZE_ID);
   const colors = paletteColors(palette);
   let paletteId = palette.id;
   for (const k of ['left', 'right', 'background', 'glow'] as const) {
@@ -69,29 +104,21 @@ export function initialState(search: string = ''): AppState {
     }
   }
   return {
+    ...defaultSettings(),
     seed: Number.isFinite(seedParam) && seedParam > 0 ? Math.floor(seedParam) : randomSeed(),
     paletteId,
     colors,
-    density: 1,
-    waveHeight: 1,
-    mesh: 1,
-    dust: 1,
-    blur: 1,
-    glow: 1,
-    brightness: 1,
     sizeId: size.id,
-    format: 'png',
     logos: [],
-    logoSize: 0.115,
-    logoGap: 0.06,
-    logoY: 0.41,
-    dividers: true,
-    dividerOpacity: 0.55,
   };
 }
 
+function outputSizeById(id: string): OutputSize {
+  return OUTPUT_SIZES.find((s) => s.id === id) ?? OUTPUT_SIZES[OUTPUT_SIZES.length - 1];
+}
+
 export function outputSize(state: AppState): OutputSize {
-  return OUTPUT_SIZES.find((s) => s.id === state.sizeId) ?? OUTPUT_SIZES[1];
+  return outputSizeById(state.sizeId);
 }
 
 type Listener = (state: AppState, changed: Set<keyof AppState>) => void;

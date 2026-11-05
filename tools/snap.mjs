@@ -13,6 +13,6 @@ for (const q of queries.length ? queries : ['seed=12345']) {
   const fs = await import('node:fs');
   const name = q.replace(/[^a-z0-9]+/gi, '_');
   fs.writeFileSync(`${outDir}/${name}.png`, Buffer.from(data.split(',')[1], 'base64'));
-  console.log('wrote', name);
+  console.log('wrote', name, await page.getByTestId('render-info').textContent());
 }
 await browser.close();

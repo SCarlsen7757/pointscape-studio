@@ -8,16 +8,29 @@
  */
 
 const DOF_COMMON = /* glsl */ `
-  uniform float uPxScale;     // output height / 1080
+  uniform float uPxScale;     // render height / 2160 — pixel sizes are authored for native 4K
   uniform float uFocalPx;     // focal length in pixels
   uniform float uFocus;       // focus distance (view-space depth)
   uniform float uAperture;    // aperture (world units)
   uniform float uFarBlur;     // blur multiplier behind the focus plane
   uniform float uFogNear;
   uniform float uFogFar;
-  uniform vec3 uColorL;
-  uniform vec3 uColorR;
+  uniform vec3 uLchL;         // left colour in OKLCH (L, C, hue radians)
+  uniform vec3 uLchR;         // right colour in OKLCH
   uniform vec3 uHaze;
+
+  vec3 oklchToLinear(vec3 lch) {
+    float A = lch.y * cos(lch.z);
+    float B = lch.y * sin(lch.z);
+    float l = lch.x + 0.3963377774 * A + 0.2158037573 * B;
+    float m = lch.x - 0.1055613458 * A - 0.0638541728 * B;
+    float s = lch.x - 0.0894841775 * A - 1.2914855480 * B;
+    l = l * l * l; m = m * m * m; s = s * s * s;
+    return max(vec3(
+       4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+      -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+      -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s), 0.0);
+  }
 
   float cocPx(float depth) {
     float d = 1.0 / uFocus - 1.0 / depth;
@@ -30,7 +43,12 @@ const DOF_COMMON = /* glsl */ `
 
   vec3 paletteAt(float screenT, float jitter) {
     float t = smoothstep(0.0, 1.0, screenT + jitter * 0.07);
-    return mix(uColorL, uColorR, t);
+    // Blend in OKLCH along the shorter hue arc: two saturated hues stay saturated
+    // through the middle instead of fading through grey (see src/core/color.ts).
+    float dh = uLchR.z - uLchL.z;
+    dh -= 6.28318530718 * floor((dh + 3.14159265359) / 6.28318530718);
+    vec3 lch = vec3(mix(uLchL.xy, uLchR.xy, t), uLchL.z + dh * t);
+    return oklchToLinear(lch);
   }
 
   float fogAt(float depth) {
@@ -66,11 +84,12 @@ export const pointVertex = /* glsl */ `
     // larger discs get fainter, so close particles overlap softly instead of reading as polka dots.
     float energy = pow(sharp / size, 1.35);
     float bokeh = smoothstep(0.35, 0.75, coc / size);
-    energy = max(energy, bokeh * uBokehGain * min(aBright, 1.3) * 0.5 * pow(clamp(14.0 * uPxScale / size, 0.25, 1.6), 0.7));
+    energy = max(energy, bokeh * uBokehGain * min(aBright, 1.3) * 0.5 * pow(clamp(28.0 * uPxScale / size, 0.25, 1.6), 0.7));
     // Sparkle points must not become hot discs once out of focus.
     float b = mix(aBright, min(aBright, 1.3), bokeh);
 
-    float aa = 1.5 * uPxScale;
+    // Anti-aliasing margin in real pixels (renders are always near-4K, so this stays crisp).
+    float aa = 1.5;
     gl_PointSize = size + aa;
     vEdge = size / (size + aa);
     vBlur = coc / size;
@@ -135,13 +154,13 @@ export const lineVertex = /* glsl */ `
     float side = position.y;
     vec4 clip = mix(clipA, clipB, t);
     float depth = mix(-mvA.z, -mvB.z, t);
-    float halfW = (uWidthPx * uPxScale) * 0.5 + 1.0 * uPxScale;
+    float halfW = (uWidthPx * uPxScale) * 0.5 + 1.0;
     clip.xy += normal * side * halfW / uResolution * 2.0 * clip.w;
     gl_Position = clip;
     vSide = side * halfW / max(uWidthPx * uPxScale * 0.5, 0.5);
 
     float coc = cocPx(depth);
-    float blurFade = 1.0 / (1.0 + pow(coc / (2.5 * uPxScale), 2.0));
+    float blurFade = 1.0 / (1.0 + pow(coc / (5.0 * uPxScale), 2.0));
     float screenT = clip.x / clip.w * 0.5 + 0.5;
     vec3 col = paletteAt(screenT, 0.0);
     float fog = fogAt(depth);

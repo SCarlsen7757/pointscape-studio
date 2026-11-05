@@ -4,6 +4,10 @@ Generate key-visual backgrounds with a procedurally generated industrial **point
 wave landscape**, with one or more logos placed in the centre. Every render is
 different (seeded), and any result can be reproduced from its seed.
 
+Images are generated **natively in 4K**: the scene is always rendered at 3840 × 2160 (or the
+same pixel budget for other aspect ratios) with particle detail tuned for 4K. Smaller output
+sizes are supersampled down from that render, so every size has the same look and crisp detail.
+
 Everything runs in the browser. Logos never leave the machine.
 
 ## Quick start
@@ -16,11 +20,15 @@ npm run dev          # http://localhost:5173
 1. **Logos** – drop or pick several SVG / PNG / JPG / WebP files. They are centred in a
    row, normalised by visual area (an icon and a wide wordmark get similar weight),
    with optional thin dividers. Reorder (‹ ›), rescale or remove each one.
-2. **Colour scheme** – pick a preset or set custom left / right particle colours,
-   background and top glow.
+2. **Colour scheme** – pick one of 8 presets (including *Neon Tropic*, hot pink → turquoise) or set
+   custom left / right particle colours, background and top glow. Colours blend across the frame
+   in OKLCH, so two different hues stay vivid through the middle instead of fading to grey.
 3. **Point cloud** – *New variation* rolls a new seed. Sliders control density, wave
    height, mesh lines, floating dust, depth of field, glow and brightness.
-4. **Output** – choose a size (HD → 4K, social card, banner, square) and export PNG or JPEG.
+4. **Output** – choose a size (4K is the default; also QHD, Full HD, HD, social card, banner,
+   square) and export PNG or JPEG.
+5. **Reset settings** (toolbar) puts every setting back to its default. The current variation
+   (seed) and your logos are kept.
 
 The URL keeps `seed` and `palette`, so a link reproduces the same background,
 e.g. `/?seed=9001&palette=amber`.
@@ -46,8 +54,11 @@ e.g. `/?seed=9001&palette=amber`.
   circle of confusion and turns into a soft bokeh disc in the foreground while staying
   crisp at the focus distance. Colour blends left → right across the frame. Lines are
   instanced screen-space quads so they stay resolution independent.
-- `src/render/backgroundRenderer.ts` – HDR (half-float, 4× MSAA) render, additive blending,
-  bloom, then a final pass with highlight roll-off, vignette, grain and dithering.
+- `src/render/backgroundRenderer.ts` – native-4K HDR (half-float) render, additive blending,
+  bloom, then a final pass with highlight roll-off, vignette, grain and dithering. Points and lines
+  are anti-aliased in their shaders, so no MSAA buffer is needed at 4K.
+- `src/core/resolution.ts` – native 4K render size for every output size.
+- `src/core/color.ts` – OKLCH gradient blending (mirrored in the shaders).
 - `src/core/layout.ts` + `src/compose/compositor.ts` – logo layout and composition.
 
 ## Tests

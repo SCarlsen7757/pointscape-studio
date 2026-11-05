@@ -5,6 +5,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { generateField, Z_FAR, type Field, type PointCloud } from '../core/field';
 import type { Palette } from '../core/palettes';
+import { NATIVE_HEIGHT, nativeRenderSize } from '../core/resolution';
+import { gradientEnds, mixOklch, oklchToLinear } from '../core/color';
 
 export type BackdropColors = Pick<Palette, 'left' | 'right' | 'background' | 'glow'>;
 import {
@@ -36,6 +38,9 @@ export type RenderSettings = {
 };
 
 export type RenderStats = {
+  /** Resolution the scene was actually rendered at (before downsampling). */
+  renderWidth: number;
+  renderHeight: number;
   points: number;
   dust: number;
   lines: number;
@@ -96,6 +101,7 @@ export class BackgroundRenderer {
   render(s: RenderSettings): RenderStats {
     const t0 = performance.now();
     const aspect = s.width / s.height;
+    const { width: rw, height: rh } = nativeRenderSize(s.width, s.height);
     const key = JSON.stringify([s.seed, aspect.toFixed(4), s.density, s.waveHeight, s.dust, s.mesh]);
     if (key !== this.fieldKey || !this.field) {
       this.field = generateField({
@@ -122,11 +128,13 @@ export class BackgroundRenderer {
     this.camera.updateProjectionMatrix();
     this.camera.updateMatrixWorld(true);
 
-    const pxScale = s.height / 1080;
-    const focalPx = (s.height / 2) / Math.tan((cam.fovY * DEG) / 2);
+    const pxScale = rh / NATIVE_HEIGHT;
+    const focalPx = (rh / 2) / Math.tan((cam.fovY * DEG) / 2);
     const colL = new THREE.Color(s.colors.left);
     const colR = new THREE.Color(s.colors.right);
-    const haze = colL.clone().lerp(colR, 0.5).multiplyScalar(0.35);
+    const [lchL, lchR] = gradientEnds([colL.r, colL.g, colL.b], [colR.r, colR.g, colR.b]);
+    const hazeRgb = oklchToLinear(mixOklch(lchL, lchR, 0.5));
+    const haze = new THREE.Color().setRGB(hazeRgb[0], hazeRgb[1], hazeRgb[2]).multiplyScalar(0.35);
     const shared = {
       uPxScale: pxScale,
       uFocalPx: focalPx,
@@ -135,8 +143,8 @@ export class BackgroundRenderer {
       uFarBlur: 0.3,
       uFogNear: Z_FAR * 0.25,
       uFogFar: Z_FAR * 0.95,
-      uColorL: colL,
-      uColorR: colR,
+      uLchL: new THREE.Vector3(...lchL),
+      uLchR: new THREE.Vector3(...lchR),
       uHaze: haze,
     };
     for (const obj of this.objects) {
@@ -144,7 +152,7 @@ export class BackgroundRenderer {
       for (const [k, v] of Object.entries(shared)) {
         if (mat.uniforms[k]) mat.uniforms[k].value = v;
       }
-      if (mat.uniforms.uResolution) mat.uniforms.uResolution.value.set(s.width, s.height);
+      if (mat.uniforms.uResolution) mat.uniforms.uResolution.value.set(rw, rh);
       if (mat.uniforms.uIntensity) {
         const isDust = obj.name === 'dust';
         mat.uniforms.uIntensity.value = (isDust ? 0.75 : 1.5) * s.brightness;
@@ -159,16 +167,15 @@ export class BackgroundRenderer {
     bu.uAspect.value = aspect;
 
     // Post-processing chain (rebuilt per render; cheap relative to a still render).
-    this.renderer.setSize(s.width, s.height, false);
-    const target = new THREE.WebGLRenderTarget(s.width, s.height, {
-      type: THREE.HalfFloatType,
-      samples: 4,
-    });
+    // No MSAA: points and lines are anti-aliased in their shaders, and a 4K multisampled
+    // half-float target would cost ~260 MB of GPU memory.
+    this.renderer.setSize(rw, rh, false);
+    const target = new THREE.WebGLRenderTarget(rw, rh, { type: THREE.HalfFloatType });
     const composer = new EffectComposer(this.renderer, target);
     composer.setPixelRatio(1);
-    composer.setSize(s.width, s.height);
+    composer.setSize(rw, rh);
     composer.addPass(new RenderPass(this.scene, this.camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(s.width, s.height), 0.2 * s.glow, 0.3, 0.3);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(rw, rh), 0.2 * s.glow, 0.45, 0.3);
     if (s.glow > 0) composer.addPass(bloom);
     const final = new ShaderPass(
       new THREE.ShaderMaterial({
@@ -194,6 +201,8 @@ export class BackgroundRenderer {
     target.dispose();
 
     return {
+      renderWidth: rw,
+      renderHeight: rh,
       points: field.terrain.count,
       dust: field.dust.count,
       lines: field.lines.count,
@@ -213,8 +222,8 @@ export class BackgroundRenderer {
 
     const lines = this.buildLines(field);
     if (lines) this.objects.push(lines);
-    const terrain = this.buildPoints(field.terrain, 'terrain', { sizeWorld: 0.024, minPx: 2.2, maxPx: 70, bokehGain: 0.3 });
-    const dust = this.buildPoints(field.dust, 'dust', { sizeWorld: 0.012, minPx: 1.1, maxPx: 80, bokehGain: 0.09 });
+    const terrain = this.buildPoints(field.terrain, 'terrain', { sizeWorld: 0.018, minPx: 3.2, maxPx: 140, bokehGain: 0.3 });
+    const dust = this.buildPoints(field.dust, 'dust', { sizeWorld: 0.011, minPx: 1.8, maxPx: 160, bokehGain: 0.09 });
     this.objects.push(terrain, dust);
     for (const o of this.objects) this.scene.add(o);
   }
@@ -228,8 +237,8 @@ export class BackgroundRenderer {
       uFarBlur: { value: 0.3 },
       uFogNear: { value: 25 },
       uFogFar: { value: 60 },
-      uColorL: { value: new THREE.Color() },
-      uColorR: { value: new THREE.Color() },
+      uLchL: { value: new THREE.Vector3() },
+      uLchR: { value: new THREE.Vector3() },
       uHaze: { value: new THREE.Color() },
     };
   }
@@ -296,7 +305,7 @@ export class BackgroundRenderer {
       uniforms: {
         ...this.dofUniforms(),
         uResolution: { value: new THREE.Vector2(1920, 1080) },
-        uWidthPx: { value: 0.9 },
+        uWidthPx: { value: 1.3 },
         uLineAlpha: { value: 0.11 },
       },
     });

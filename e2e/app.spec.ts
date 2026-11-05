@@ -21,8 +21,10 @@ test.describe('backdrop generator', () => {
     await openApp(page);
 
     await expect(page.getByTestId('status')).toHaveText('Ready');
-    await expect(page.getByTestId('render-info')).toContainText('1920×1080');
-    expect(await canvasSize(page)).toEqual({ width: 1920, height: 1080 });
+    // Native 4K is the default output.
+    await expect(page.getByTestId('render-info')).toContainText('3840×2160 (native)');
+    expect(await canvasSize(page)).toEqual({ width: 3840, height: 2160 });
+    await expect(page.getByTestId('size')).toHaveValue('3840x2160');
 
     const band = await regionStats(page, [0.05, 0.55, 0.95, 0.85]);
     expect(band.lumaP99).toBeGreaterThan(120);
@@ -50,9 +52,9 @@ test.describe('backdrop generator', () => {
     expect(layout!.logos).toHaveLength(3);
     expect(layout!.dividers).toHaveLength(2);
     const b = layout!.bounds!;
-    expect(Math.abs(b.x + b.width / 2 - 960)).toBeLessThan(1);
+    expect(Math.abs(b.x + b.width / 2 - 3840 / 2)).toBeLessThan(1);
     // Logos sit in the clear area above the waves.
-    expect(b.y + b.height).toBeLessThan(1080 * 0.55);
+    expect(b.y + b.height).toBeLessThan(2160 * 0.55);
   });
 
   test('reorders, rescales and removes logos', async ({ page }) => {
@@ -104,7 +106,7 @@ test.describe('backdrop generator', () => {
     await page.getByTestId('slider-logoY').fill('0.3');
     await waitForIdle(page);
     const moved = (await page.evaluate(() => window.__backdrop!.layout()))!;
-    expect(moved.bounds!.y + moved.bounds!.height / 2).toBeCloseTo(1080 * 0.3, 0);
+    expect(moved.bounds!.y + moved.bounds!.height / 2).toBeCloseTo(2160 * 0.3, 0);
   });
 
   test('colour schemes change the particle colours', async ({ page }) => {
@@ -161,9 +163,9 @@ test.describe('backdrop generator', () => {
     await waitForIdle(page);
 
     let [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export').click()]);
-    expect(download.suggestedFilename()).toBe('backdrop-teal-frost-31337-1920x1080.png');
+    expect(download.suggestedFilename()).toBe('backdrop-teal-frost-31337-3840x2160.png');
     let buf = fs.readFileSync((await download.path())!);
-    expect(pngSize(buf)).toEqual({ width: 1920, height: 1080 });
+    expect(pngSize(buf)).toEqual({ width: 3840, height: 2160 });
 
     await page.getByTestId('size').selectOption('1280x720');
     await waitForIdle(page);
@@ -177,6 +179,64 @@ test.describe('backdrop generator', () => {
     expect(download.suggestedFilename()).toMatch(/\.jpg$/);
     buf = fs.readFileSync((await download.path())!);
     expect(buf.subarray(0, 3).toString('hex')).toBe('ffd8ff');
+  });
+
+  test('smaller outputs are supersampled from a native 4K render', async ({ page }) => {
+    await openApp(page, 'seed=777&size=1920x1080');
+    expect(await canvasSize(page)).toEqual({ width: 1920, height: 1080 });
+    const stats = await page.evaluate(() => window.__backdrop!.stats()!);
+    expect(stats.renderWidth).toBe(3840);
+    expect(stats.renderHeight).toBe(2160);
+    await expect(page.getByTestId('render-info')).toContainText('rendered at 3840×2160');
+
+    await page.getByTestId('size').selectOption('1080x1080');
+    await waitForIdle(page);
+    const sq = await page.evaluate(() => window.__backdrop!.stats()!);
+    expect([sq.renderWidth, sq.renderHeight]).toEqual([2160, 2160]);
+  });
+
+  test('reset settings restores defaults but keeps the variation and logos', async ({ page }) => {
+    await openApp(page, 'seed=4242');
+    const original = await canvasHash(page);
+    await page.getByTestId('logo-input').setInputFiles([fixture('logo-mark.svg'), fixture('logo-wordmark.svg')]);
+    await expect(page.getByTestId('logo-item')).toHaveCount(2);
+    await waitForIdle(page);
+    const withLogos = await canvasHash(page);
+
+    await page.getByTestId('palette-neon-tropic').click();
+    await page.getByTestId('slider-density').fill('1.5');
+    await page.getByTestId('slider-logoSize').fill('0.2');
+    await page.getByTestId('logo-item').nth(0).getByTestId('logo-scale').fill('1.8');
+    await page.getByTestId('dividers').uncheck();
+    await page.getByTestId('size').selectOption('1280x720');
+    await page.getByTestId('format').selectOption('jpeg');
+    await waitForIdle(page);
+    expect(await canvasHash(page)).not.toBe(withLogos);
+
+    await page.getByTestId('reset').click();
+    await waitForIdle(page);
+    await expect(page.getByTestId('palette-teal-frost')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('slider-density')).toHaveValue('1');
+    await expect(page.getByTestId('slider-logoSize')).toHaveValue('0.115');
+    await expect(page.getByTestId('logo-item').nth(0).getByTestId('logo-scale')).toHaveValue('1');
+    await expect(page.getByTestId('dividers')).toBeChecked();
+    await expect(page.getByTestId('size')).toHaveValue('3840x2160');
+    await expect(page.getByTestId('format')).toHaveValue('png');
+    await expect(page.getByTestId('seed')).toHaveValue('4242');
+    await expect(page.getByTestId('logo-item')).toHaveCount(2);
+    // Same seed + logos + default settings ⇒ the exact same image as before the changes.
+    expect(await canvasHash(page)).toBe(withLogos);
+    expect(withLogos).not.toBe(original);
+  });
+
+  test('offers the Neon Tropic colour scheme', async ({ page }) => {
+    await openApp(page, 'seed=777&palette=neon-tropic');
+    await expect(page.getByTestId('palette-neon-tropic')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('palette-neon-tropic')).toContainText('Neon Tropic');
+    // Hot pink on the left: red and blue dominate green.
+    const left = (await regionStats(page, LEFT_TERRAIN)).mean;
+    expect(left[0]).toBeGreaterThan(left[1] * 1.3);
+    expect(left[2]).toBeGreaterThan(left[1]);
   });
 
   test('reads seed and palette from the URL', async ({ page }) => {

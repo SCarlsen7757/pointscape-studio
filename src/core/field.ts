@@ -180,7 +180,8 @@ export function generateField(opts: FieldOptions): Field {
   const tanHalfY = Math.tan((camera.fovY * DEG) / 2);
   const tanHalfX = tanHalfY * opts.aspect;
 
-  const spacing = 0.115 / Math.sqrt(Math.max(0.2, opts.density));
+  // Grid spacing tuned for native 4K detail.
+  const spacing = 0.1 / Math.sqrt(Math.max(0.2, opts.density));
   const cosR = Math.cos(variation.gridRotation);
   const sinR = Math.sin(variation.gridRotation);
 
@@ -332,7 +333,7 @@ function generateDust(
   tanHalfX: number,
   tanHalfY: number,
 ): PointCloud {
-  const target = Math.round(14000 * Math.max(0, opts.dust));
+  const target = Math.round(18000 * Math.max(0, opts.dust));
   const px: number[] = [];
   const py: number[] = [];
   const pz: number[] = [];

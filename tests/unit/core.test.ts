@@ -3,7 +3,8 @@ import { createRng } from '../../src/core/rng';
 import { createNoise2D, fbm } from '../../src/core/noise';
 import { generateField, Z_FAR, Z_NEAR } from '../../src/core/field';
 import { PALETTES, hexToRgb, isHexColor } from '../../src/core/palettes';
-import { initialState, Store, OUTPUT_SIZES } from '../../src/state';
+import { initialState, Store, DEFAULT_SIZE_ID, defaultSettings, resetSettingsPatch, type LogoItem } from '../../src/state';
+import { nativeRenderSize } from '../../src/core/resolution';
 
 describe('rng', () => {
   it('is deterministic per seed', () => {
@@ -121,7 +122,30 @@ describe('field generation', () => {
   });
 });
 
+describe('native 4K rendering', () => {
+  it('renders every output size at native 4K resolution', () => {
+    expect(nativeRenderSize(3840, 2160)).toEqual({ width: 3840, height: 2160 });
+    expect(nativeRenderSize(1920, 1080)).toEqual({ width: 3840, height: 2160 });
+    expect(nativeRenderSize(1280, 720)).toEqual({ width: 3840, height: 2160 });
+    expect(nativeRenderSize(1080, 1080)).toEqual({ width: 2160, height: 2160 });
+    expect(nativeRenderSize(1500, 500)).toEqual({ width: 3840, height: 1280 });
+    expect(nativeRenderSize(1200, 630)).toEqual({ width: 3840, height: 2016 });
+  });
+
+  it('never renders below the requested size', () => {
+    expect(nativeRenderSize(7680, 4320)).toEqual({ width: 7680, height: 4320 });
+  });
+});
+
 describe('palettes', () => {
+  it('include the Neon Tropic preset', () => {
+    const p = PALETTES.find((x) => x.id === 'neon-tropic');
+    expect(p?.name).toBe('Neon Tropic');
+    const [r, g, b] = hexToRgb(p!.left);
+    expect(r).toBeGreaterThan(200); // hot pink
+    expect(b).toBeGreaterThan(g);
+  });
+
   it('are all valid', () => {
     const ids = new Set<string>();
     for (const p of PALETTES) {
@@ -150,7 +174,33 @@ describe('state', () => {
     const s = initialState('?seed=abc&palette=nope&size=1x1');
     expect(s.seed).toBeGreaterThan(0);
     expect(s.paletteId).toBe('teal-frost');
-    expect(s.sizeId).toBe(OUTPUT_SIZES[1].id);
+    expect(s.sizeId).toBe(DEFAULT_SIZE_ID);
+  });
+
+  it('defaults to native 4K output', () => {
+    expect(DEFAULT_SIZE_ID).toBe('3840x2160');
+    expect(initialState('').sizeId).toBe('3840x2160');
+  });
+
+  it('reset restores every setting but keeps the seed and logos', () => {
+    const logo = { id: 'a', name: 'a.svg', url: '', image: {} as HTMLImageElement, width: 10, height: 10, scale: 1.7 } as LogoItem;
+    const s = {
+      ...initialState('?seed=42&palette=amber&size=1280x720'),
+      density: 1.4,
+      blur: 0.2,
+      logoSize: 0.2,
+      dividers: false,
+      format: 'jpeg' as const,
+      logos: [logo],
+    };
+    const store = new Store(s);
+    store.set(resetSettingsPatch(store.state));
+    const { logos, seed, ...rest } = store.state;
+    expect(seed).toBe(42);
+    expect(logos).toHaveLength(1);
+    expect(logos[0].id).toBe('a');
+    expect(logos[0].scale).toBe(1);
+    expect(rest).toEqual(defaultSettings());
   });
 
   it('store notifies only about changed keys', () => {

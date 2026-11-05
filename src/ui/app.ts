@@ -7,8 +7,10 @@ import {
   OUTPUT_SIZES,
   RENDER_KEYS,
   Store,
+  defaultSettings,
   outputSize,
   paletteColors,
+  resetSettingsPatch,
   type AppState,
   type Colors,
 } from '../state';
@@ -106,8 +108,12 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
       renderCount++;
       preview.dataset.renderCount = String(renderCount);
       preview.dataset.seed = String(state.seed);
+      const native =
+        lastStats && (lastStats.renderWidth !== size.width || lastStats.renderHeight !== size.height)
+          ? ` (rendered at ${lastStats.renderWidth}×${lastStats.renderHeight})`
+          : ' (native)';
       const info = lastStats
-        ? `${size.width}×${size.height} · ${(lastStats.points + lastStats.dust).toLocaleString('en-US')} particles · ${Math.round(lastStats.ms)} ms`
+        ? `${size.width}×${size.height}${native} · ${(lastStats.points + lastStats.dust).toLocaleString('en-US')} particles · ${Math.round(lastStats.ms)} ms`
         : '';
       setStatus('ready', 'Ready');
       $<HTMLElement>('[data-testid="render-info"]').textContent = info;
@@ -201,6 +207,11 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
   const dividerToggle = $<HTMLInputElement>('[data-testid="dividers"]');
   dividerToggle.addEventListener('change', () => store.set({ dividers: dividerToggle.checked }));
 
+  // Reset: every setting back to its default; the seed and uploaded logos are kept.
+  root.querySelectorAll('[data-action="reset"]').forEach((b) =>
+    b.addEventListener('click', () => store.set(resetSettingsPatch(store.state))),
+  );
+
   // Export
   root.querySelectorAll('[data-action="export"]').forEach((b) =>
     b.addEventListener('click', async () => {
@@ -287,7 +298,14 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
   const renderLogoList = () => {
     const logos = store.state.logos;
     const ids = logos.map((l) => l.id).join('|');
-    if (ids === renderedLogoIds) return;
+    if (ids === renderedLogoIds) {
+      // Same logos: only sync the per-logo scale sliders (e.g. after a reset).
+      logoList.querySelectorAll<HTMLElement>('[data-logo-id]').forEach((li, i) => {
+        const input = li.querySelector<HTMLInputElement>('[data-logo-scale]')!;
+        if (Number(input.value) !== logos[i].scale) input.value = String(logos[i].scale);
+      });
+      return;
+    }
     renderedLogoIds = ids;
     logoList.innerHTML = logos
       .map(
@@ -365,8 +383,8 @@ function sliderMarkup(s: Slider): string {
 }
 
 function defaultFor(key: keyof AppState): number {
-  const d: Partial<Record<keyof AppState, number>> = { logoSize: 0.115, logoGap: 0.06, logoY: 0.41, dividerOpacity: 0.55 };
-  return d[key] ?? 1;
+  const v = (defaultSettings() as Record<string, unknown>)[key];
+  return typeof v === 'number' ? v : 1;
 }
 
 function escapeHtml(s: string): string {
@@ -415,7 +433,7 @@ function template(): string {
           <button type="button" class="btn ghost" data-action="randomize" data-testid="randomize-panel">New variation</button>
         </div>
         <div id="cloud-sliders"></div>
-        <p class="hint muted">Double-click a slider to reset it.</p>
+        <p class="hint muted">Double-click a slider to reset it, or use <em>Reset settings</em> to reset everything.</p>
       </section>
 
       <section class="group">
@@ -429,6 +447,7 @@ function template(): string {
       <div class="toolbar">
         <div class="status"><span class="dot"></span><span data-testid="status">Rendering…</span><span class="info" data-testid="render-info"></span></div>
         <div class="actions">
+          <button type="button" class="btn ghost" data-action="reset" data-testid="reset" title="Reset all settings to their defaults. Keeps the current variation and your logos.">Reset settings</button>
           <button type="button" class="btn" data-action="randomize" data-testid="randomize">↻ New variation</button>
           <button type="button" class="btn primary" data-action="export" data-testid="export">Export image</button>
         </div>

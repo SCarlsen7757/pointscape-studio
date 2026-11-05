@@ -21,6 +21,7 @@ export const PALETTES: readonly Palette[] = [
   { id: 'emerald', name: 'Emerald Grid', left: '#14e08c', right: '#d2ffe9', background: '#020905', glow: '#123426' },
   { id: 'crimson', name: 'Crimson Steel', left: '#ff3048', right: '#e3e8f2', background: '#0a0306', glow: '#33141c' },
   { id: 'silver', name: 'Mono Silver', left: '#8fa6bf', right: '#ffffff', background: '#05070a', glow: '#1f2832' },
+  { id: 'neon-tropic', name: 'Neon Tropic', left: '#ff2e9a', right: '#00f0d0', background: '#07030c', glow: '#3a0f38' },
 ];
 
 export const DEFAULT_PALETTE: Palette = PALETTES[0];
