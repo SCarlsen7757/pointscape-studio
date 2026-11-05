@@ -76,16 +76,21 @@ describe('field generation', () => {
       const tanHalfX = tanHalfY * base.aspect;
       const pitch = (f.camera.pitch * Math.PI) / 180;
       let highest = -Infinity;
+      let minDepth = Infinity;
+      let maxDepth = -Infinity;
       for (let i = 0; i < f.terrain.count; i++) {
         const x = p[i * 3];
         const y = p[i * 3 + 1] - f.camera.height;
         const z = p[i * 3 + 2];
-        expect(-z).toBeGreaterThanOrEqual(Z_NEAR);
-        expect(-z).toBeLessThanOrEqual(Z_FAR);
+        // Track extremes instead of asserting per point (≈800k expect calls is slow on CI).
+        minDepth = Math.min(minDepth, -z);
+        maxDepth = Math.max(maxDepth, -z);
         const depth = -z * Math.cos(pitch) + y * Math.sin(pitch);
         const s = (y * Math.cos(pitch) + z * Math.sin(pitch)) / (depth * tanHalfY);
         if (Math.abs(x / (depth * tanHalfX)) < 0.33) highest = Math.max(highest, s);
       }
+      expect(minDepth).toBeGreaterThanOrEqual(Z_NEAR);
+      expect(maxDepth).toBeLessThanOrEqual(Z_FAR);
       // Logo row sits at ~41% from the top (s ≈ +0.18). Terrain in the central
       // third must stay below the image centre, even at maximum wave height.
       expect(highest).toBeLessThan(0);

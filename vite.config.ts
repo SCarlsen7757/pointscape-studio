@@ -9,5 +9,7 @@ export default defineConfig({
   test: {
     include: ['tests/unit/**/*.test.ts'],
     environment: 'node',
+    // Field generation builds ~160k points per test; give slower CI runners headroom.
+    testTimeout: 30_000,
   },
 });
