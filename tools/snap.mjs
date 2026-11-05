@@ -7,8 +7,8 @@ page.on('console', (m) => console.log('console:', m.text()));
 page.on('pageerror', (e) => console.log('pageerror:', e.message));
 for (const q of queries.length ? queries : ['seed=12345']) {
   await page.goto(`http://localhost:5173/?${q}`);
-  await page.waitForFunction(() => !!window.__backdrop, null, { timeout: 120000 });
-  await page.evaluate(() => window.__backdrop.idle());
+  await page.waitForFunction(() => !!window.__app, null, { timeout: 120000 });
+  await page.evaluate(() => window.__app.idle());
   const data = await page.evaluate(() => document.querySelector('[data-testid="preview"]').toDataURL('image/png'));
   const fs = await import('node:fs');
   const name = q.replace(/[^a-z0-9]+/gi, '_');

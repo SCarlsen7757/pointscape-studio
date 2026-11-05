@@ -7,8 +7,8 @@ export const fixture = (name: string) => path.join(FIXTURES, name);
 
 /** Waits until the app has finished all scheduled rendering. */
 export async function waitForIdle(page: Page): Promise<void> {
-  await page.waitForFunction(() => !!window.__backdrop, null, { timeout: 30_000 });
-  await page.evaluate(() => window.__backdrop!.idle());
+  await page.waitForFunction(() => !!window.__app, null, { timeout: 30_000 });
+  await page.evaluate(() => window.__app!.idle());
   await expect(page.getByTestId('preview')).toHaveAttribute('data-status', 'ready');
 }
 

@@ -1,5 +1,5 @@
 /**
- * GLSL shaders for the point-cloud backdrop.
+ * GLSL shaders for the point-cloud scene.
  *
  * Depth of field is simulated per particle: each point's sprite grows by its
  * circle of confusion (thin-lens approximation) and its intensity is spread
@@ -177,7 +177,7 @@ export const lineFragment = /* glsl */ `
   }
 `;
 
-export const backdropVertex = /* glsl */ `
+export const skyVertex = /* glsl */ `
   varying vec2 vUv;
   void main() {
     vUv = uv;
@@ -185,7 +185,7 @@ export const backdropVertex = /* glsl */ `
   }
 `;
 
-export const backdropFragment = /* glsl */ `
+export const skyFragment = /* glsl */ `
   uniform vec3 uBackground;
   uniform vec3 uGlow;
   uniform vec3 uColorL;

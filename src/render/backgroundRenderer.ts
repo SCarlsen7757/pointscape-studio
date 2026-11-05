@@ -8,10 +8,10 @@ import type { Palette } from '../core/palettes';
 import { NATIVE_HEIGHT, nativeRenderSize } from '../core/resolution';
 import { gradientEnds, mixOklch, oklchToLinear } from '../core/color';
 
-export type BackdropColors = Pick<Palette, 'left' | 'right' | 'background' | 'glow'>;
+export type SceneColors = Pick<Palette, 'left' | 'right' | 'background' | 'glow'>;
 import {
-  backdropFragment,
-  backdropVertex,
+  skyFragment,
+  skyVertex,
   finalFragment,
   finalVertex,
   lineFragment,
@@ -24,7 +24,7 @@ export type RenderSettings = {
   width: number;
   height: number;
   seed: number;
-  colors: BackdropColors;
+  colors: SceneColors;
   density: number;
   waveHeight: number;
   dust: number;
@@ -49,7 +49,7 @@ export type RenderStats = {
 
 const DEG = Math.PI / 180;
 
-/** Renders the point-cloud backdrop with WebGL into its own (off-DOM) canvas. */
+/** Renders the point-cloud scene with WebGL into its own (off-DOM) canvas. */
 export class BackgroundRenderer {
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
@@ -58,7 +58,7 @@ export class BackgroundRenderer {
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 200);
   private objects: THREE.Object3D[] = [];
-  private backdrop: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+  private sky: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -73,11 +73,11 @@ export class BackgroundRenderer {
     this.renderer.autoClear = true;
     this.renderer.setClearColor(0x000000, 1);
 
-    this.backdrop = new THREE.Mesh(
+    this.sky = new THREE.Mesh(
       new THREE.PlaneGeometry(2, 2),
       new THREE.ShaderMaterial({
-        vertexShader: backdropVertex,
-        fragmentShader: backdropFragment,
+        vertexShader: skyVertex,
+        fragmentShader: skyFragment,
         depthTest: false,
         depthWrite: false,
         uniforms: {
@@ -90,8 +90,8 @@ export class BackgroundRenderer {
         },
       }),
     );
-    this.backdrop.frustumCulled = false;
-    this.backdrop.renderOrder = -10;
+    this.sky.frustumCulled = false;
+    this.sky.renderOrder = -10;
   }
 
   get maxSize(): number {
@@ -159,7 +159,7 @@ export class BackgroundRenderer {
       }
     }
 
-    const bu = this.backdrop.material.uniforms;
+    const bu = this.sky.material.uniforms;
     bu.uBackground.value.set(s.colors.background);
     bu.uGlow.value.set(s.colors.glow);
     bu.uColorL.value.copy(colL);
@@ -218,7 +218,7 @@ export class BackgroundRenderer {
       (m.material as THREE.Material).dispose();
     }
     this.objects = [];
-    this.scene.add(this.backdrop);
+    this.scene.add(this.sky);
 
     const lines = this.buildLines(field);
     if (lines) this.objects.push(lines);

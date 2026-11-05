@@ -1,4 +1,4 @@
-# Backdrop Studio
+# Pointscape Studio
 
 Generate key-visual backgrounds with a procedurally generated industrial **point-cloud
 wave landscape**, with one or more logos placed in the centre. Every render is
@@ -9,6 +9,8 @@ same pixel budget for other aspect ratios) with particle detail tuned for 4K. Sm
 sizes are supersampled down from that render, so every size has the same look and crisp detail.
 
 Everything runs in the browser. Logos never leave the machine.
+
+**Live:** https://scarlsen7757.github.io/pointscape-studio/
 
 ## Quick start
 
@@ -76,7 +78,15 @@ them across several seeds and colour schemes: logo area dark and clear, bright c
 band, deep blacks in the foreground, dust in the upper corners, nothing blown out. Each run
 writes the composited renders to `test-results/gallery/` for a human look.
 
-The app exposes `window.__backdrop` (`idle()`, `stats()`, `layout()`, `store`) for automation.
+The app exposes `window.__app` (`idle()`, `stats()`, `layout()`, `store`) for automation.
+
+## Deployment
+
+`.github/workflows/deploy.yml` runs the typecheck, unit tests and Playwright e2e suite on every
+push and pull request. Pushes to `main` are then built and published to GitHub Pages
+(repository *Settings → Pages → Source: GitHub Actions*). The build uses a relative base path,
+so the same output works under `/pointscape-studio/` and at a domain root. The e2e report and
+render gallery are attached to each run as the `test-results` artifact.
 
 ## Dev tools
 

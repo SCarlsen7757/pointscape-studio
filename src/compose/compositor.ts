@@ -1,7 +1,7 @@
 import { computeLayout, type Layout } from '../core/layout';
 import type { AppState } from '../state';
 
-/** Draws the rendered backdrop plus the logo row onto a 2D canvas. */
+/** Draws the rendered background plus the logo row onto a 2D canvas. */
 export function compose(
   target: HTMLCanvasElement,
   background: HTMLCanvasElement,

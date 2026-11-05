@@ -1,8 +1,8 @@
 /**
  * Colour schemes. Colours are authored as sRGB hex strings.
  *  - left / right: particle colours, blended across the image horizontally.
- *  - background: the deep base colour of the backdrop.
- *  - glow: the soft haze that lights the backdrop from the top centre.
+ *  - background: the deep base colour of the background.
+ *  - glow: the soft haze that lights the background from the top centre.
  */
 export type Palette = {
   id: string;

@@ -14,8 +14,8 @@ import {
 const LOGO_ZONE: [number, number, number, number] = [0.3, 0.3, 0.7, 0.52];
 const LEFT_TERRAIN: [number, number, number, number] = [0, 0.55, 0.25, 0.9];
 
-test.describe('backdrop generator', () => {
-  test('renders a point-cloud backdrop on load', async ({ page }) => {
+test.describe('app', () => {
+  test('renders a point-cloud landscape on load', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await openApp(page);
@@ -48,7 +48,7 @@ test.describe('backdrop generator', () => {
     const after = await regionStats(page, LOGO_ZONE);
     expect(after.brightFraction).toBeGreaterThan(before.brightFraction + 0.01);
 
-    const layout = await page.evaluate(() => window.__backdrop!.layout());
+    const layout = await page.evaluate(() => window.__app!.layout());
     expect(layout!.logos).toHaveLength(3);
     expect(layout!.dividers).toHaveLength(2);
     const b = layout!.bounds!;
@@ -69,10 +69,10 @@ test.describe('backdrop generator', () => {
     await expect(items.nth(1)).toContainText('logo-mark.svg');
 
     await waitForIdle(page);
-    const w1 = (await page.evaluate(() => window.__backdrop!.layout()))!.logos[1].width;
+    const w1 = (await page.evaluate(() => window.__app!.layout()))!.logos[1].width;
     await items.nth(1).getByTestId('logo-scale').fill('1.6');
     await waitForIdle(page);
-    const w2 = (await page.evaluate(() => window.__backdrop!.layout()))!.logos[1].width;
+    const w2 = (await page.evaluate(() => window.__app!.layout()))!.logos[1].width;
     expect(w2).toBeGreaterThan(w1 * 1.3);
 
     await items.nth(0).getByTestId('logo-remove').click();
@@ -92,20 +92,20 @@ test.describe('backdrop generator', () => {
     await page.getByTestId('logo-input').setInputFiles([fixture('logo-mark.svg'), fixture('logo-badge.png')]);
     await expect(page.getByTestId('logo-item')).toHaveCount(2);
     await waitForIdle(page);
-    const base = (await page.evaluate(() => window.__backdrop!.layout()))!;
+    const base = (await page.evaluate(() => window.__app!.layout()))!;
 
     await page.getByTestId('slider-logoSize').fill('0.2');
     await waitForIdle(page);
-    const bigger = (await page.evaluate(() => window.__backdrop!.layout()))!;
+    const bigger = (await page.evaluate(() => window.__app!.layout()))!;
     expect(bigger.bounds!.width).toBeGreaterThan(base.bounds!.width * 1.4);
 
     await page.getByTestId('dividers').uncheck();
     await waitForIdle(page);
-    expect((await page.evaluate(() => window.__backdrop!.layout()))!.dividers).toHaveLength(0);
+    expect((await page.evaluate(() => window.__app!.layout()))!.dividers).toHaveLength(0);
 
     await page.getByTestId('slider-logoY').fill('0.3');
     await waitForIdle(page);
-    const moved = (await page.evaluate(() => window.__backdrop!.layout()))!;
+    const moved = (await page.evaluate(() => window.__app!.layout()))!;
     expect(moved.bounds!.y + moved.bounds!.height / 2).toBeCloseTo(2160 * 0.3, 0);
   });
 
@@ -148,10 +148,10 @@ test.describe('backdrop generator', () => {
   test('generation sliders re-render the cloud', async ({ page }) => {
     await openApp(page);
     const h1 = await canvasHash(page);
-    const n1 = await page.evaluate(() => window.__backdrop!.stats()!.points);
+    const n1 = await page.evaluate(() => window.__app!.stats()!.points);
     await page.getByTestId('slider-density').fill('1.5');
     await waitForIdle(page);
-    const n2 = await page.evaluate(() => window.__backdrop!.stats()!.points);
+    const n2 = await page.evaluate(() => window.__app!.stats()!.points);
     expect(n2).toBeGreaterThan(n1 * 1.3);
     expect(await canvasHash(page)).not.toBe(h1);
   });
@@ -163,7 +163,7 @@ test.describe('backdrop generator', () => {
     await waitForIdle(page);
 
     let [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export').click()]);
-    expect(download.suggestedFilename()).toBe('backdrop-teal-frost-31337-3840x2160.png');
+    expect(download.suggestedFilename()).toBe('pointscape-teal-frost-31337-3840x2160.png');
     let buf = fs.readFileSync((await download.path())!);
     expect(pngSize(buf)).toEqual({ width: 3840, height: 2160 });
 
@@ -184,14 +184,14 @@ test.describe('backdrop generator', () => {
   test('smaller outputs are supersampled from a native 4K render', async ({ page }) => {
     await openApp(page, 'seed=777&size=1920x1080');
     expect(await canvasSize(page)).toEqual({ width: 1920, height: 1080 });
-    const stats = await page.evaluate(() => window.__backdrop!.stats()!);
+    const stats = await page.evaluate(() => window.__app!.stats()!);
     expect(stats.renderWidth).toBe(3840);
     expect(stats.renderHeight).toBe(2160);
     await expect(page.getByTestId('render-info')).toContainText('rendered at 3840×2160');
 
     await page.getByTestId('size').selectOption('1080x1080');
     await waitForIdle(page);
-    const sq = await page.evaluate(() => window.__backdrop!.stats()!);
+    const sq = await page.evaluate(() => window.__app!.stats()!);
     expect([sq.renderWidth, sq.renderHeight]).toEqual([2160, 2160]);
   });
 

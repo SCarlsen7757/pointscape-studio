@@ -5,10 +5,10 @@ import { Store, initialState } from './state';
 declare global {
   interface Window {
     /** Test / automation hook. */
-    __backdrop?: AppHandle;
+    __app?: AppHandle;
   }
 }
 
 const root = document.getElementById('app')!;
 const store = new Store(initialState(location.search));
-window.__backdrop = mountApp(root, store);
+window.__app = mountApp(root, store);

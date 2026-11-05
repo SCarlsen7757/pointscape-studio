@@ -223,7 +223,7 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
       if (!blob) return;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `backdrop-${s.paletteId}-${s.seed}-${size.width}x${size.height}.${s.format === 'jpeg' ? 'jpg' : 'png'}`;
+      a.download = `pointscape-${s.paletteId}-${s.seed}-${size.width}x${size.height}.${s.format === 'jpeg' ? 'jpg' : 'png'}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -398,7 +398,7 @@ function template(): string {
       <header class="brand">
         <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
         <div>
-          <h1>Backdrop Studio</h1>
+          <h1>Pointscape Studio</h1>
           <p>Point-cloud key visuals</p>
         </div>
       </header>
@@ -411,7 +411,7 @@ function template(): string {
           <span>Drop files or click · SVG or transparent PNG works best</span>
         </label>
         <p class="error" data-testid="logo-error" role="alert"></p>
-        <p class="logo-empty muted">No logos yet — the backdrop renders on its own.</p>
+        <p class="logo-empty muted">No logos yet — the landscape renders on its own.</p>
         <ol class="logo-list" data-testid="logo-list"></ol>
         <div id="logo-sliders"></div>
         <label class="toggle"><input type="checkbox" data-testid="dividers" /> <span>Dividers between logos</span></label>
