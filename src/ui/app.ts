@@ -81,6 +81,9 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
   const setStatus = (s: 'rendering' | 'ready' | 'error', text?: string) => {
     stage.dataset.status = s;
     preview.dataset.status = s;
+    root.querySelectorAll<HTMLButtonElement>('[data-action="export"]').forEach((button) => {
+      button.disabled = s !== 'ready';
+    });
     statusEl.textContent = text ?? (s === 'rendering' ? 'Rendering…' : 'Ready');
   };
 
@@ -129,7 +132,7 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
   };
 
   const schedule = (full: boolean) => {
-    pendingRender ||= full;
+    pendingRender ||= full || preview.dataset.status === 'error';
     pendingCompose = true;
     setStatus('rendering');
     if (scheduled !== null) cancelAnimationFrame(scheduled);
@@ -216,11 +219,12 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
   root.querySelectorAll('[data-action="export"]').forEach((b) =>
     b.addEventListener('click', async () => {
       await handle.idle();
+      if (preview.dataset.status !== 'ready') return;
       const s = store.state;
       const size = outputSize(s);
       const mime = s.format === 'jpeg' ? 'image/jpeg' : 'image/png';
       const blob = await new Promise<Blob | null>((res) => preview.toBlob(res, mime, 0.95));
-      if (!blob) return;
+      if (!blob || store.state !== s || preview.dataset.status !== 'ready') return;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `pointscape-${s.paletteId}-${s.seed}-${size.width}x${size.height}.${s.format === 'jpeg' ? 'jpg' : 'png'}`;
@@ -354,8 +358,13 @@ export function mountApp(root: HTMLElement, store: Store): AppHandle {
     renderLogoList();
     const url = new URL(location.href);
     url.searchParams.set('seed', String(s.seed));
+    url.searchParams.set('size', s.sizeId);
     if (s.paletteId !== 'custom') url.searchParams.set('palette', s.paletteId);
     else url.searchParams.delete('palette');
+    for (const { key } of COLOR_FIELDS) {
+      if (s.paletteId === 'custom') url.searchParams.set(key, s.colors[key].slice(1));
+      else url.searchParams.delete(key);
+    }
     history.replaceState(null, '', url);
   };
 

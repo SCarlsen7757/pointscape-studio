@@ -32,7 +32,7 @@ npm run dev          # http://localhost:5173
 5. **Reset settings** (toolbar) puts every setting back to its default. The current variation
    (seed) and your logos are kept.
 
-The URL keeps `seed` and `palette`, so a link reproduces the same background,
+The URL keeps `seed`, `palette` (or custom colours), and output `size`, so a link reproduces the same background,
 e.g. `/?seed=9001&palette=amber`.
 
 ## Tech stack
@@ -87,6 +87,13 @@ push and pull request. Pushes to `main` are then built and published to GitHub P
 (repository *Settings → Pages → Source: GitHub Actions*). The build uses a relative base path,
 so the same output works under `/pointscape-studio/` and at a domain root. The e2e report and
 render gallery are attached to each run as the `test-results` artifact.
+
+## Dependency updates
+
+`.github/dependabot.yml` checks npm dependencies and GitHub Actions every Monday at
+09:00 Europe/Copenhagen. Updates to `three` and `@types/three` are grouped so their
+versions can be reviewed together. Dependabot pull requests run the existing CI tests.
+The configuration takes effect when it is merged into the repository's default branch.
 
 ## Dev tools
 

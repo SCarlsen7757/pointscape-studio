@@ -239,6 +239,68 @@ test.describe('app', () => {
     expect(left[2]).toBeGreaterThan(left[1]);
   });
 
+  test('preserves custom colours and output size across reloads', async ({ page }) => {
+    await openApp(page, 'seed=777&palette=amber&size=1920x1080');
+    await page.getByText('Custom colours').click();
+    await page.getByTestId('color-left').fill('#00ff40');
+    await page.getByTestId('size').selectOption('1280x720');
+    await waitForIdle(page);
+    const before = await canvasHash(page);
+    await page.reload();
+    await waitForIdle(page);
+    await expect(page.getByTestId('size')).toHaveValue('1280x720');
+    await expect(page.getByTestId('color-left')).toHaveValue('#00ff40');
+    expect(await canvasHash(page)).toBe(before);
+  });
+
+  test('preset selection clears stale custom colours from the URL', async ({ page }) => {
+    await openApp(page, 'seed=777&left=ff0000&right=00ff00&background=000000&glow=0000ff&size=1920x1080');
+    await page.getByTestId('palette-amber').click();
+    await page.getByTestId('size').selectOption('1280x720');
+    await waitForIdle(page);
+    const url = new URL(page.url());
+    for (const key of ['left', 'right', 'background', 'glow']) expect(url.searchParams.has(key)).toBe(false);
+    await page.reload();
+    await waitForIdle(page);
+    await expect(page.getByTestId('palette-amber')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('size')).toHaveValue('1280x720');
+  });
+
+  test('blocks export after a failed render and allows export after recovery', async ({ page }) => {
+    await openApp(page);
+    const exportButton = page.getByTestId('export');
+    await page.evaluate(async () => {
+      const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
+      const ctx = canvas.getContext('2d')!;
+      const drawImage = ctx.drawImage;
+      ctx.drawImage = function () {
+        ctx.drawImage = drawImage;
+        throw new Error('Simulated composition failure');
+      };
+      window.__app!.store.set({ seed: 778 });
+      await window.__app!.idle();
+    });
+    await expect(page.getByTestId('status')).toContainText('Render failed');
+    await expect(exportButton).toBeDisabled();
+    // Even a programmatic click must not encode the stale preview.
+    const encodes = await page.evaluate(async () => {
+      const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
+      const toBlob = canvas.toBlob;
+      let calls = 0;
+      canvas.toBlob = () => { calls++; };
+      document.querySelector('[data-action="export"]')!.dispatchEvent(new MouseEvent('click'));
+      await Promise.resolve();
+      canvas.toBlob = toBlob;
+      return calls;
+    });
+    expect(encodes).toBe(0);
+    await page.getByTestId('slider-logoSize').fill('0.2');
+    await waitForIdle(page);
+    await expect(exportButton).toBeEnabled();
+    const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
+    expect(download.suggestedFilename()).toContain('-778-');
+  });
+
   test('reads seed and palette from the URL', async ({ page }) => {
     await openApp(page, 'seed=9001&palette=violet');
     await expect(page.getByTestId('seed')).toHaveValue('9001');
