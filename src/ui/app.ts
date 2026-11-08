@@ -404,14 +404,6 @@ function template(): string {
   return `
   <div class="app">
     <aside class="panel" aria-label="Settings">
-      <header class="brand">
-        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-        <div>
-          <h1>Pointscape Studio</h1>
-          <p>Point-cloud key visuals</p>
-        </div>
-      </header>
-
       <section class="group">
         <h2>Logos</h2>
         <label class="dropzone" data-testid="dropzone">

@@ -39,24 +39,8 @@ body { background: var(--bg); }
   scrollbar-color: #24313d transparent;
 }
 
-.brand { display: flex; gap: 12px; align-items: center; margin-bottom: 22px; }
-.brand h1 { font-size: 16px; margin: 0; letter-spacing: 0.01em; font-weight: 650; }
-.brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
-.brand-mark {
-  width: 36px; height: 36px; border-radius: 9px; position: relative; overflow: hidden;
-  background: radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--accent) 45%, transparent), #0b141c 70%);
-  border: 1px solid var(--line-strong);
-}
-.brand-mark span {
-  position: absolute; left: -10%; right: -10%; height: 2px; border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 8px var(--accent);
-}
-.brand-mark span:nth-child(1) { top: 52%; transform: rotate(-8deg); opacity: 0.9; }
-.brand-mark span:nth-child(2) { top: 64%; transform: rotate(5deg); opacity: 0.6; }
-.brand-mark span:nth-child(3) { top: 76%; transform: rotate(-3deg); opacity: 0.35; }
-
 .group { padding: 16px 0 18px; border-top: 1px solid var(--line); }
+.panel > .group:first-child { padding-top: 0; border-top: 0; }
 .group h2 {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
   margin: 0 0 12px; font-weight: 600;
